@@ -14,38 +14,37 @@ const MIN_CHECK_INTERVAL = 1000;
 
 async function checkDiscordUsername(username: string): Promise<{ available: boolean; error?: string }> {
   try {
-    const lookupUrl = `https://discordlookup.mesavirep.xyz/v1/user/${encodeURIComponent(username)}`;
+    const apiUrl = "https://discord.com/api/v9/unique-username/username-attempt-unauthed";
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const response = await fetch(lookupUrl, {
-      method: "GET",
+    const response = await fetch(apiUrl, {
+      method: "POST",
       headers: {
+        "Content-Type": "application/json",
         "Accept": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
+      body: JSON.stringify({ username: username.toLowerCase() }),
       signal: controller.signal,
     });
     
     clearTimeout(timeoutId);
 
-    if (response.status === 404) {
-      return { available: true };
-    }
-
     if (response.status === 429) {
-      return { available: false, error: "Rate limited" };
+      return { available: false, error: "Rate limited - please wait" };
     }
 
     if (response.ok) {
-      return { available: false };
+      const data = await response.json() as { taken: boolean };
+      return { available: !data.taken };
     }
     
     return { available: false, error: `HTTP ${response.status}` };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      return { available: false, error: "Timeout" };
+      return { available: false, error: "Timeout - try again" };
     }
     return { 
       available: false, 
