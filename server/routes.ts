@@ -65,7 +65,8 @@ export async function registerRoutes(
         parsed.type,
         parsed.includeLetters,
         parsed.includeNumbers,
-        parsed.count
+        parsed.count,
+        parsed.prefix || ""
       );
       res.json({ usernames });
     } catch (error) {

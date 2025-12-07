@@ -15,8 +15,9 @@ const defaultSettings: CheckSettings = {
   usernameTypes: ["four"],
   includeLetters: true,
   includeNumbers: true,
-  delayMs: 60000, // دقيقة واحدة بين كل فحص
+  delayMs: 60000,
   dailyLimit: 50,
+  prefix: "",
 };
 
 const defaultStats: SessionStats = {
@@ -32,8 +33,9 @@ export default function Home() {
     usernameTypes: ["three", "four", "semiThree"],
     includeLetters: true,
     includeNumbers: true,
-    delayMs: 60000, // دقيقة واحدة بين كل فحص
+    delayMs: 60000,
     dailyLimit: 100,
+    prefix: "",
   });
   const [isRunning, setIsRunning] = useState(false);
   const [queue, setQueue] = useState<UsernameCheck[]>([]);
@@ -60,13 +62,14 @@ export default function Home() {
         includeLetters: settings.includeLetters,
         includeNumbers: settings.includeNumbers,
         count: 1,
+        prefix: settings.prefix || "",
       });
       const data = await response.json();
       return data.usernames?.[0] ? { username: data.usernames[0], type } : null;
     } catch {
       return null;
     }
-  }, [settings.usernameTypes, settings.includeLetters, settings.includeNumbers]);
+  }, [settings.usernameTypes, settings.includeLetters, settings.includeNumbers, settings.prefix]);
 
   const checkUsername = useCallback(async (username: string): Promise<{ available: boolean; error?: string }> => {
     try {
@@ -302,8 +305,9 @@ export default function Home() {
       </main>
 
       <footer className="border-t py-6 mt-8">
-        <div className="max-w-6xl mx-auto px-4 text-center text-sm text-muted-foreground">
+        <div className="max-w-6xl mx-auto px-4 text-center text-sm text-muted-foreground space-y-2">
           <p>استخدم هذه الأداة بمسؤولية واحترم شروط خدمة Discord</p>
+          <p className="font-medium">تم الصنع بواسطة b9r2</p>
         </div>
       </footer>
     </div>

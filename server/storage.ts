@@ -82,32 +82,55 @@ function randomChar(pool: string): string {
 export function generateUsername(
   type: UsernameType,
   includeLetters: boolean,
-  includeNumbers: boolean
+  includeNumbers: boolean,
+  prefix: string = ""
 ): string {
   const pool = getCharPool(includeLetters, includeNumbers);
+  const prefixLength = prefix.length;
   
   switch (type) {
-    case "three":
-      // ثلاثي: 3 أحرف أو حرفين + رقم
-      if (includeLetters && includeNumbers && Math.random() < 0.5) {
-        const letters = LETTERS;
-        const numbers = NUMBERS;
-        return randomChar(letters) + randomChar(letters) + randomChar(numbers);
+    case "three": {
+      const remaining = 3 - prefixLength;
+      if (remaining <= 0) return prefix.slice(0, 3);
+      let result = prefix;
+      for (let i = 0; i < remaining; i++) {
+        result += randomChar(pool);
       }
-      return randomChar(pool) + randomChar(pool) + randomChar(pool);
-    case "four":
-      return randomChar(pool) + randomChar(pool) + randomChar(pool) + randomChar(pool);
-    case "semiThree":
-      // شبه ثلاثي: يحتوي على _ أو . في موضع عشوائي
+      return result;
+    }
+    case "four": {
+      const remaining = 4 - prefixLength;
+      if (remaining <= 0) return prefix.slice(0, 4);
+      let result = prefix;
+      for (let i = 0; i < remaining; i++) {
+        result += randomChar(pool);
+      }
+      return result;
+    }
+    case "semiThree": {
       const separator = Math.random() < 0.5 ? '_' : '.';
-      const position = Math.floor(Math.random() * 3); // 0, 1, or 2
-      
-      const chars = [randomChar(pool), randomChar(pool), randomChar(pool)];
+      const baseLength = 3 - prefixLength;
+      if (baseLength <= 0) {
+        return prefix.slice(0, 2) + separator + prefix.slice(2, 3);
+      }
+      let base = prefix;
+      for (let i = 0; i < baseLength; i++) {
+        base += randomChar(pool);
+      }
+      const position = Math.floor(Math.random() * 3) + 1;
+      const chars = base.split('');
       chars.splice(position, 0, separator);
-      
       return chars.join('');
-    default:
-      return randomChar(pool) + randomChar(pool) + randomChar(pool);
+    }
+    default: {
+      const remaining = 3 - prefixLength;
+      if (remaining <= 0) return prefix.slice(0, 3);
+      let result = prefix;
+      for (let i = 0; i < remaining; i++) {
+        result += randomChar(pool);
+      }
+      return result;
+    }
   }
 }
 
@@ -115,17 +138,21 @@ export function generateUsernames(
   type: UsernameType,
   includeLetters: boolean,
   includeNumbers: boolean,
-  count: number
+  count: number,
+  prefix: string = ""
 ): string[] {
   const usernames: string[] = [];
   const seen = new Set<string>();
+  const maxAttempts = count * 10;
+  let attempts = 0;
   
-  for (let i = 0; i < count && usernames.length < count; i++) {
-    const username = generateUsername(type, includeLetters, includeNumbers);
+  while (usernames.length < count && attempts < maxAttempts) {
+    const username = generateUsername(type, includeLetters, includeNumbers, prefix);
     if (!seen.has(username)) {
       seen.add(username);
       usernames.push(username);
     }
+    attempts++;
   }
   
   return usernames;

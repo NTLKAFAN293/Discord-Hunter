@@ -5,7 +5,8 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Play, Square, Settings, Timer, Shield } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Play, Square, Settings, Timer, Shield, Type } from "lucide-react";
 import type { CheckSettings } from "@shared/schema";
 
 interface ControlPanelProps {
@@ -70,9 +71,6 @@ export function ControlPanel({
             <p className="text-sm text-muted-foreground">
               ثلاثي: abc أو ab1 | رباعي: abcd | شبه ثلاثي: a_bc أو a.bc
             </p>
-            <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
-              ⚠️ بدون بروكسيات، Discord API سيحظر طلباتك بسرعة. أضف بروكسيات في check_username.py للحصول على نتائج أفضل.
-            </p>
           </div>
 
           <div className="space-y-2">
@@ -105,6 +103,28 @@ export function ControlPanel({
                 </Label>
               </div>
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-base font-medium flex items-center gap-2">
+              <Type className="h-4 w-4" />
+              بادئة اليوزر (اختياري)
+            </Label>
+            <Input
+              id="prefix"
+              value={settings.prefix || ""}
+              onChange={(e) => {
+                const value = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 2);
+                onSettingsChange({ ...settings, prefix: value });
+              }}
+              placeholder="مثال: ab أو a"
+              maxLength={2}
+              className="font-mono text-lg"
+              data-testid="input-prefix"
+            />
+            <p className="text-sm text-muted-foreground">
+              أدخل حرف أو حرفين لتبدأ بهم جميع الأسماء المولدة
+            </p>
           </div>
         </CardContent>
       </Card>

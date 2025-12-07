@@ -22,6 +22,7 @@ export const checkSettingsSchema = z.object({
   includeNumbers: z.boolean().default(true),
   delayMs: z.number().min(1000).max(10000).default(3000),
   dailyLimit: z.number().min(10).max(500).default(100),
+  prefix: z.string().max(2).default(""),
 });
 
 export type CheckSettings = z.infer<typeof checkSettingsSchema>;
@@ -49,6 +50,7 @@ export const generateRequestSchema = z.object({
   includeLetters: z.boolean(),
   includeNumbers: z.boolean(),
   count: z.number().min(1).max(10).default(1),
+  prefix: z.string().max(2).default(""),
 });
 
 export type GenerateRequest = z.infer<typeof generateRequestSchema>;
