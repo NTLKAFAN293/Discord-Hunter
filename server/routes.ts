@@ -4,6 +4,8 @@ import { storage, generateUsernames } from "./storage";
 import { generateRequestSchema } from "@shared/schema";
 import { z } from "zod";
 import { randomUUID } from "crypto";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import nodeFetch from "node-fetch";
 
 const checkUsernameSchema = z.object({
   username: z.string().min(2).max(32),
@@ -12,28 +14,106 @@ const checkUsernameSchema = z.object({
 const lastCheckTimes: Map<string, number> = new Map();
 const MIN_CHECK_INTERVAL = 1000;
 
+interface ProxyInfo {
+  ip: string;
+  port: string;
+  type: string;
+}
+
+let cachedProxy: ProxyInfo | null = null;
+let proxyLastFetched = 0;
+const PROXY_CACHE_DURATION = 5 * 60 * 1000;
+
+async function getProxy(): Promise<ProxyInfo | null> {
+  const now = Date.now();
+  if (cachedProxy && now - proxyLastFetched < PROXY_CACHE_DURATION) {
+    return cachedProxy;
+  }
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await nodeFetch(
+      "http://pubproxy.com/api/proxy?format=json&type=http&https=true&level=elite&limit=1",
+      { signal: controller.signal as any }
+    );
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const data = await response.json() as { data: Array<{ ip: string; port: string; type: string }> };
+      if (data.data && data.data.length > 0) {
+        cachedProxy = {
+          ip: data.data[0].ip,
+          port: data.data[0].port,
+          type: data.data[0].type,
+        };
+        proxyLastFetched = now;
+        console.log(`[proxy] Using proxy: ${cachedProxy.ip}:${cachedProxy.port}`);
+        return cachedProxy;
+      }
+    }
+  } catch (error) {
+    console.log("[proxy] Failed to fetch proxy, using direct connection");
+  }
+  return null;
+}
+
 async function checkDiscordUsername(username: string): Promise<{ available: boolean; error?: string }> {
   try {
     const apiUrl = "https://discord.com/api/v9/unique-username/username-attempt-unauthed";
+    const proxy = await getProxy();
+    
+    const headers = {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    };
+    
+    const body = JSON.stringify({ username: username.toLowerCase() });
+    
+    let response;
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      },
-      body: JSON.stringify({ username: username.toLowerCase() }),
-      signal: controller.signal,
-    });
+    if (proxy) {
+      const proxyUrl = `http://${proxy.ip}:${proxy.port}`;
+      const agent = new HttpsProxyAgent(proxyUrl);
+      
+      try {
+        response = await nodeFetch(apiUrl, {
+          method: "POST",
+          headers,
+          body,
+          agent,
+          signal: controller.signal as any,
+        });
+      } catch (proxyError) {
+        console.log("[proxy] Proxy request failed, trying direct connection");
+        cachedProxy = null;
+        response = await nodeFetch(apiUrl, {
+          method: "POST",
+          headers,
+          body,
+          signal: controller.signal as any,
+        });
+      }
+    } else {
+      response = await nodeFetch(apiUrl, {
+        method: "POST",
+        headers,
+        body,
+        signal: controller.signal as any,
+      });
+    }
     
     clearTimeout(timeoutId);
 
     if (response.status === 429) {
-      return { available: false, error: "Rate limited - please wait" };
+      cachedProxy = null;
+      return { available: false, error: "Rate limited - trying new proxy" };
     }
 
     if (response.ok) {
