@@ -33,7 +33,7 @@ export default function Home() {
     usernameTypes: ["three", "four", "semiThree"],
     includeLetters: true,
     includeNumbers: true,
-    delayMs: 60000,
+    delayMs: 5000,
     dailyLimit: 100,
     prefix: "",
   });
