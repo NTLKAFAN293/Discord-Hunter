@@ -46,30 +46,46 @@ export default function Home() {
 
   const runningRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const usernameQueueRef = useRef<Array<{ username: string; type: UsernameType }>>([]);
 
   const { data: serverStats } = useQuery<SessionStats>({
     queryKey: ["/api/stats"],
-    refetchInterval: isRunning ? 2000 : false,
+    refetchInterval: isRunning ? 10000 : false,
   });
 
   const stats = serverStats || localStats;
 
-  const generateUsername = useCallback(async (): Promise<{ username: string; type: UsernameType } | null> => {
+  const generateUsernames = useCallback(async (count: number): Promise<Array<{ username: string; type: UsernameType }>> => {
     try {
-      const type = settings.usernameTypes[Math.floor(Math.random() * settings.usernameTypes.length)];
-      const response = await apiRequest("POST", "/api/generate", {
-        type,
-        includeLetters: settings.includeLetters,
-        includeNumbers: settings.includeNumbers,
-        count: 1,
-        prefix: settings.prefix || "",
-      });
-      const data = await response.json();
-      return data.usernames?.[0] ? { username: data.usernames[0], type } : null;
+      const results: Array<{ username: string; type: UsernameType }> = [];
+      for (const type of settings.usernameTypes) {
+        const response = await apiRequest("POST", "/api/generate", {
+          type,
+          includeLetters: settings.includeLetters,
+          includeNumbers: settings.includeNumbers,
+          count: Math.ceil(count / settings.usernameTypes.length),
+          prefix: settings.prefix || "",
+        });
+        const data = await response.json();
+        if (data.usernames) {
+          for (const username of data.usernames) {
+            results.push({ username, type });
+          }
+        }
+      }
+      return results.slice(0, count);
     } catch {
-      return null;
+      return [];
     }
   }, [settings.usernameTypes, settings.includeLetters, settings.includeNumbers, settings.prefix]);
+
+  const getNextUsername = useCallback(async (): Promise<{ username: string; type: UsernameType } | null> => {
+    if (usernameQueueRef.current.length === 0) {
+      const newUsernames = await generateUsernames(20);
+      usernameQueueRef.current = newUsernames;
+    }
+    return usernameQueueRef.current.shift() || null;
+  }, [generateUsernames]);
 
   const checkUsername = useCallback(async (username: string): Promise<{ available: boolean; error?: string }> => {
     try {
@@ -89,7 +105,7 @@ export default function Home() {
   const runCheckLoop = useCallback(async () => {
     if (!runningRef.current) return;
 
-    const currentChecksToday = stats.checksToday;
+    const currentChecksToday = localStats.checksToday;
     if (currentChecksToday >= settings.dailyLimit) {
       setIsRunning(false);
       runningRef.current = false;
@@ -101,7 +117,7 @@ export default function Home() {
       return;
     }
 
-    const generated = await generateUsername();
+    const generated = await getNextUsername();
     if (!generated || !runningRef.current) {
       if (runningRef.current) {
         timeoutRef.current = setTimeout(runCheckLoop, settings.delayMs);
@@ -151,8 +167,6 @@ export default function Home() {
       checksToday: prev.checksToday + 1,
     }));
 
-    queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-
     if (result.error && result.error !== "Rate limited") {
       toast({
         title: "تحذير",
@@ -164,11 +178,12 @@ export default function Home() {
     if (runningRef.current) {
       timeoutRef.current = setTimeout(runCheckLoop, settings.delayMs);
     }
-  }, [generateUsername, checkUsername, settings.delayMs, settings.dailyLimit, stats.checksToday, toast]);
+  }, [getNextUsername, checkUsername, settings.delayMs, settings.dailyLimit, localStats.checksToday, toast]);
 
   const handleStart = useCallback(() => {
     setIsRunning(true);
     runningRef.current = true;
+    usernameQueueRef.current = [];
     if (!localStats.startTime) {
       setLocalStats((prev) => ({ ...prev, startTime: new Date().toISOString() }));
     }
