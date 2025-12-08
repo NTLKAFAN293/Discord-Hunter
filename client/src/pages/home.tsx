@@ -81,7 +81,7 @@ export default function Home() {
 
   const getNextUsername = useCallback(async (): Promise<{ username: string; type: UsernameType } | null> => {
     if (usernameQueueRef.current.length === 0) {
-      const newUsernames = await generateUsernames(20);
+      const newUsernames = await generateUsernames(10);
       usernameQueueRef.current = newUsernames;
     }
     return usernameQueueRef.current.shift() || null;
